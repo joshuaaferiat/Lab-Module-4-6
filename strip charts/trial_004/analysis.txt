@@ -1,0 +1,11 @@
+Trial 004 strip-chart analysis
+Starting temperature: 22.15 °C
+Setpoint: 33.00 °C
+K_p: 10 PWM/°C
+T_ss: 22.15 °C (mean of final 20% of samples, from 5.20 s)
+First peak: No local peak detected.
+Overshoot relative to T_ss: Not available (no local peak detected).
+Later crossings of T_ss: none observed
+Later peaks: No later local peaks detected.
+Signed PWM (heat positive, cool negative): +0 to +109 counts
+PWM saturation (|PWM| = 255): none observed

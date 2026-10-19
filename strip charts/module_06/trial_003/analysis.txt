@@ -1,0 +1,18 @@
+Trial 003 strip-chart analysis
+Goldilocks run: P low
+Starting temperature: 30.72 °C
+Setpoint: 33.00 °C
+K_p: 10 PWM/°C
+K_i: 0–0.03 PWM/(°C s)
+Controller mode(s): p, pi
+Initial temperature(s) for the recorded setpoint steps: 30.72 °C
+PWM limit: ±255 counts
+Anti-windup: conditional integration
+Sample interval (min/mean/max): 0.200/0.200/0.200 s
+T_ss: 31.24 °C (mean of final 20% of samples, from 22.60 s)
+First peak: 30.78 °C at 4.40 s
+Overshoot relative to T_ss: -0.46 °C relative to T_ss
+Later crossings of T_ss: 24.74 s, 24.93 s, 25.27 s
+Later peaks: minimum 30.77 °C at 4.60 s (|T − T_ss|=0.47 °C); maximum 30.84 °C at 5.20 s (|T − T_ss|=0.40 °C); minimum 30.83 °C at 5.40 s (|T − T_ss|=0.41 °C); maximum 30.91 °C at 5.80 s (|T − T_ss|=0.33 °C); minimum 30.90 °C at 6.00 s (|T − T_ss|=0.34 °C); maximum 30.97 °C at 7.00 s (|T − T_ss|=0.27 °C); maximum 31.03 °C at 7.80 s (|T − T_ss|=0.21 °C); minimum 30.98 °C at 8.20 s (|T − T_ss|=0.26 °C); maximum 31.06 °C at 8.60 s (|T − T_ss|=0.18 °C); minimum 31.05 °C at 8.80 s (|T − T_ss|=0.19 °C); maximum 31.07 °C at 9.00 s (|T − T_ss|=0.17 °C); minimum 31.06 °C at 9.20 s (|T − T_ss|=0.18 °C); maximum 31.09 °C at 9.40 s (|T − T_ss|=0.15 °C); minimum 31.03 °C at 9.80 s (|T − T_ss|=0.21 °C); maximum 31.10 °C at 10.00 s (|T − T_ss|=0.14 °C); minimum 31.05 °C at 10.20 s (|T − T_ss|=0.19 °C); maximum 31.11 °C at 10.40 s (|T − T_ss|=0.13 °C); minimum 31.08 °C at 10.60 s (|T − T_ss|=0.16 °C); maximum 31.11 °C at 10.80 s (|T − T_ss|=0.13 °C); minimum 31.10 °C at 11.00 s (|T − T_ss|=0.14 °C); maximum 31.11 °C at 11.20 s (|T − T_ss|=0.13 °C); minimum 31.10 °C at 11.40 s (|T − T_ss|=0.14 °C); maximum 31.12 °C at 11.60 s (|T − T_ss|=0.12 °C); minimum 31.10 °C at 11.80 s (|T − T_ss|=0.14 °C); maximum 31.15 °C at 12.20 s (|T − T_ss|=0.09 °C); maximum 31.17 °C at 15.60 s (|T − T_ss|=0.07 °C); maximum 31.18 °C at 16.40 s (|T − T_ss|=0.06 °C); minimum 31.16 °C at 17.20 s (|T − T_ss|=0.08 °C); minimum 31.18 °C at 18.40 s (|T − T_ss|=0.06 °C); maximum 31.22 °C at 20.00 s (|T − T_ss|=0.02 °C); minimum 31.21 °C at 22.60 s (|T − T_ss|=0.03 °C); maximum 31.23 °C at 23.40 s (|T − T_ss|=0.01 °C); minimum 31.22 °C at 23.60 s (|T − T_ss|=0.02 °C); maximum 31.24 °C at 23.80 s (|T − T_ss|=0.00 °C); minimum 31.23 °C at 24.00 s (|T − T_ss|=0.01 °C); minimum 31.23 °C at 24.60 s (|T − T_ss|=0.01 °C); maximum 31.25 °C at 24.80 s (|T − T_ss|=0.01 °C); maximum 31.26 °C at 26.60 s (|T − T_ss|=0.02 °C); minimum 31.25 °C at 26.80 s (|T − T_ss|=0.01 °C); maximum 31.26 °C at 27.00 s (|T − T_ss|=0.02 °C); minimum 31.25 °C at 27.20 s (|T − T_ss|=0.01 °C); minimum 31.26 °C at 27.80 s (|T − T_ss|=0.02 °C); later peak deviations are not monotonically decreasing
+Signed PWM (heat positive, cool negative): +0 to +24 counts
+PWM saturation (|PWM| = 255): none observed
