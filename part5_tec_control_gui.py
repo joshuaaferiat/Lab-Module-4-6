@@ -9,6 +9,7 @@ Features:
 """
 
 import csv
+import math
 import re
 import sys
 from collections import deque
@@ -26,16 +27,17 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from pyqtgraph import PlotWidget
+from pyqtgraph import PlotWidget # type: ignore
 
 PORT = "/dev/tty.usbmodem1101"
-BAUD = 115200
+BAUD = 9600
 WINDOW_SECONDS = 60.0
 PLOT_INTERVAL_MS = 100
 OUTPUT_FILE = Path(__file__).resolve().parents[2] / "data" / "module_03" / "tec_control_data.csv"
 
 MEASUREMENT_PATTERN = re.compile(
-    r"Temperature \(C\):\s*([-+]?\d*\.?\d+)\s*,\s*Time \(s\):\s*([-+]?\d*\.?\d+)\s*,\s*PWM:\s*(\d+)\s*,\s*Heat/Cool:\s*([01])"
+    r"Temperature \(C\):\s*([-+]?(?:\d*\.?\d+|nan))\s*,\s*Time \(s\):\s*([-+]?\d*\.?\d+)\s*,\s*PWM:\s*(\d+),[^\r\n]*?Heat/Cool:\s*([01])",
+    re.IGNORECASE,
 )
 
 
@@ -45,7 +47,8 @@ class ControlWindow(QMainWindow):
         self.setWindowTitle("TEC Manual Control")
         self.resize(1100, 700)
 
-        self.serial_port = serial.Serial(PORT, BAUD, timeout=0.1)
+        self.serial_port = serial.Serial(PORT, BAUD, timeout=0)
+        self.serial_buffer = bytearray()
         self.temp_history = deque()
         self.time_history = deque()
         self.pwm_history = deque()
@@ -125,16 +128,22 @@ class ControlWindow(QMainWindow):
             self.serial_port.write(command.encode("utf-8"))
 
     def poll_serial(self):
-        while self.serial_port.in_waiting:
-            raw_line = self.serial_port.readline().decode("utf-8", errors="replace")
-            if not raw_line:
-                continue
+        waiting = self.serial_port.in_waiting
+        if not waiting:
+            return
 
-            parsed = parse_measurement(raw_line)
+        self.serial_buffer.extend(self.serial_port.read(waiting))
+        updated_plot = False
+        while b"\n" in self.serial_buffer:
+            raw_line, _, remaining = self.serial_buffer.partition(b"\n")
+            self.serial_buffer = bytearray(remaining)
+            parsed = parse_measurement(raw_line.decode("utf-8", errors="replace"))
             if parsed is None:
                 continue
 
-            self.temperature_label.setText(f"Temperature (C): {parsed['temperature_C']:.2f}")
+            temperature = parsed["temperature_C"]
+            temperature_text = f"{temperature:.2f}" if math.isfinite(temperature) else "--"
+            self.temperature_label.setText(f"Temperature (C): {temperature_text}")
             self.time_label.setText(f"Time (s): {parsed['time_s']:.2f}")
             self.pwm_label.setText(f"PWM: {parsed['pwm']}")
 
@@ -155,9 +164,19 @@ class ControlWindow(QMainWindow):
             )
             self.csv_file.flush()
 
-            if len(self.time_history) >= 2:
-                self.temp_plot.plot(list(self.time_history), list(self.temp_history), clear=True, pen="r")
-                self.pwm_plot.plot(list(self.time_history), list(self.pwm_history), clear=True, pen="b")
+            updated_plot = True
+
+        if len(self.serial_buffer) > 256:
+            self.serial_buffer.clear()
+
+        if updated_plot and len(self.time_history) >= 2:
+            cutoff = self.time_history[-1] - WINDOW_SECONDS
+            while self.time_history and self.time_history[0] < cutoff:
+                self.time_history.popleft()
+                self.temp_history.popleft()
+                self.pwm_history.popleft()
+            self.temp_plot.plot(list(self.time_history), list(self.temp_history), clear=True, pen="r")
+            self.pwm_plot.plot(list(self.time_history), list(self.pwm_history), clear=True, pen="b")
 
 
 def parse_measurement(line: str):
