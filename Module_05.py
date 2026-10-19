@@ -10,7 +10,6 @@ import stat
 import sys
 import threading
 from collections import deque
-from datetime import datetime
 from pathlib import Path
 
 import serial
@@ -41,7 +40,6 @@ WINDOW_SECONDS = 60.0
 PLOT_UPDATE_MS = 200
 CSV_PATH = Path(__file__).resolve().parents[1] / "data" / "module_05" / "tec_calibration.csv"
 KP_PWM_PER_C = 10.0
-GAIN_TRIAL_VALUES = (0.5, 1.0, 2.0, 4.0, 8.0, 12.0, 20.0, 30.0)
 
 HEAT_COLOR = "#c43b32"
 COOL_COLOR = "#2475a8"
@@ -145,11 +143,9 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.csv_file = None
         self.closing = False
         self.serial_ready = False
+        self.data_collection_paused = False
         self.latest_temperature_c = None
         self.temperature_cutoff_tripped = False
-        self.active_gain_trial = None
-        self.gain_trial_results = []
-        self.completed_gain_trials = set()
 
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
@@ -185,6 +181,14 @@ class CalibrationWindow(QtWidgets.QMainWindow):
 
         self.stop_button = QtWidgets.QPushButton("PWM 0")
         controls.addWidget(self.stop_button)
+        controls.addStretch(1)
+        self.pause_collection_button = QtWidgets.QPushButton("Pause")
+        self.pause_collection_button.setCheckable(True)
+        self.pause_collection_button.setFixedWidth(72)
+        self.pause_collection_button.setToolTip(
+            "Pause saving and plotting measurements; temperature safety and control remain active."
+        )
+        controls.addWidget(self.pause_collection_button)
         layout.addLayout(controls)
 
         control_mode = QtWidgets.QHBoxLayout()
@@ -240,45 +244,6 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         safety_controls.addWidget(self.reset_cutoff_button)
         layout.addLayout(safety_controls)
 
-        experiment_group = QtWidgets.QGroupBox("Droop-versus-gain experiment")
-        experiment_layout = QtWidgets.QGridLayout(experiment_group)
-        self.trial_gain_value = QtWidgets.QComboBox()
-        for gain in GAIN_TRIAL_VALUES:
-            self.trial_gain_value.addItem(f"{gain:g} PWM/°C", gain)
-        self.ambient_value = QtWidgets.QDoubleSpinBox()
-        self.ambient_value.setRange(-50.0, 150.0)
-        self.ambient_value.setDecimals(1)
-        self.ambient_value.setSuffix(" °C")
-        self.ambient_value.setValue(25.0)
-        self.susceptibility_value = QtWidgets.QDoubleSpinBox()
-        self.susceptibility_value.setRange(0.0, 100.0)
-        self.susceptibility_value.setDecimals(4)
-        self.susceptibility_value.setSingleStep(0.001)
-        self.susceptibility_value.setSuffix(" °C/PWM")
-        self.trial_prediction = QtWidgets.QLabel()
-        self.trial_outcome = QtWidgets.QComboBox()
-        self.trial_outcome.addItems(["Settled", "Failed to settle"])
-        self.start_trial_button = QtWidgets.QPushButton("Start gain trial")
-        self.record_trial_button = QtWidgets.QPushButton("Record result and trace")
-        self.record_trial_button.setEnabled(False)
-        self.show_droop_button = QtWidgets.QPushButton("Plot droop vs Kp")
-        self.trial_status = QtWidgets.QLabel("No gain trial recorded.")
-
-        experiment_layout.addWidget(QtWidgets.QLabel("Trial Kp"), 0, 0)
-        experiment_layout.addWidget(self.trial_gain_value, 0, 1)
-        experiment_layout.addWidget(QtWidgets.QLabel("Ambient temperature"), 0, 2)
-        experiment_layout.addWidget(self.ambient_value, 0, 3)
-        experiment_layout.addWidget(QtWidgets.QLabel("Module 4 susceptibility"), 1, 0)
-        experiment_layout.addWidget(self.susceptibility_value, 1, 1)
-        experiment_layout.addWidget(self.trial_prediction, 1, 2, 1, 2)
-        experiment_layout.addWidget(self.trial_outcome, 2, 0)
-        experiment_layout.addWidget(self.start_trial_button, 2, 1)
-        experiment_layout.addWidget(self.record_trial_button, 2, 2)
-        experiment_layout.addWidget(self.show_droop_button, 2, 3)
-        experiment_layout.addWidget(self.trial_status, 3, 0, 1, 4)
-        layout.addWidget(experiment_group)
-        self.update_trial_prediction()
-
         self.temperature_plot = pg.PlotWidget(title="Temperature vs Time")
         self.temperature_plot.setLabel("left", "Temperature", units="°C")
         self.temperature_plot.setLabel("bottom", "Time", units="s")
@@ -322,14 +287,8 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.setpoint_value.valueChanged.connect(self.on_setpoint_changed)
         self.kp_value.valueChanged.connect(self.on_kp_changed)
         self.stop_button.clicked.connect(self.stop_output)
+        self.pause_collection_button.toggled.connect(self.on_collection_paused)
         self.reset_cutoff_button.clicked.connect(self.reset_temperature_cutoff)
-        self.trial_gain_value.currentIndexChanged.connect(self.update_trial_prediction)
-        self.ambient_value.valueChanged.connect(self.update_trial_prediction)
-        self.setpoint_value.valueChanged.connect(self.update_trial_prediction)
-        self.susceptibility_value.valueChanged.connect(self.update_trial_prediction)
-        self.start_trial_button.clicked.connect(self.start_gain_trial)
-        self.record_trial_button.clicked.connect(self.record_gain_trial)
-        self.show_droop_button.clicked.connect(self.show_droop_plot)
 
         self.plot_timer = QtCore.QTimer(self)
         self.plot_timer.timeout.connect(self.update_plots)
@@ -347,13 +306,12 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.heat_button.setEnabled(manual_enabled)
         self.cool_button.setEnabled(manual_enabled)
         self.pwm_slider.setEnabled(manual_enabled)
-        trial_idle = self.active_gain_trial is None
-        self.proportional_checkbox.setEnabled(controls_available and trial_idle)
+        self.proportional_checkbox.setEnabled(controls_available)
         self.setpoint_value.setEnabled(
-            controls_available and trial_idle and self.proportional_checkbox.isChecked()
+            controls_available and self.proportional_checkbox.isChecked()
         )
         self.kp_value.setEnabled(
-            controls_available and trial_idle and self.proportional_checkbox.isChecked()
+            controls_available and self.proportional_checkbox.isChecked()
         )
         self.stop_button.setEnabled(enabled)
         temperature_is_safe = (
@@ -363,13 +321,14 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.reset_cutoff_button.setEnabled(
             enabled and self.temperature_cutoff_tripped and temperature_is_safe
         )
-        self.trial_gain_value.setEnabled(trial_idle)
-        self.ambient_value.setEnabled(trial_idle)
-        self.susceptibility_value.setEnabled(trial_idle)
-        self.update_trial_prediction()
 
     def current_direction(self) -> str:
         return "HEAT" if self.heat_button.isChecked() else "COOL"
+
+    @QtCore.Slot(bool)
+    def on_collection_paused(self, paused: bool):
+        self.data_collection_paused = paused
+        self.pause_collection_button.setText("Resume" if paused else "Pause")
 
     @QtCore.Slot(int)
     def on_pwm_changed(self, value: int):
@@ -437,238 +396,6 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         target = self.setpoint_value.value() if setpoint_c is None else setpoint_c
         error = target - self.latest_temperature_c
         self.error_value.setText(f"Error (T_set − T): {error:.2f} °C")
-
-    @QtCore.Slot()
-    def update_trial_prediction(self):
-        gain = float(self.trial_gain_value.currentData())
-        initial_error = self.setpoint_value.value() - self.ambient_value.value()
-        initial_pwm = gain * abs(initial_error)
-        prediction = f"Predicted P₀: {initial_pwm:.1f} PWM"
-        susceptibility = self.susceptibility_value.value()
-        if susceptibility > 0:
-            predicted_droop = initial_error / (1 + susceptibility * gain)
-            prediction += f"    Model droop: {predicted_droop:.2f} °C"
-        self.trial_prediction.setText(prediction)
-        self.start_trial_button.setEnabled(
-            self.active_gain_trial is None
-            and gain not in self.completed_gain_trials
-            and self.serial_ready
-            and self.latest_temperature_c is not None
-            and not self.temperature_cutoff_tripped
-        )
-
-    @QtCore.Slot()
-    def start_gain_trial(self):
-        if (
-            not self.serial_ready
-            or not self.serial_worker.isRunning()
-            or self.latest_temperature_c is None
-            or self.temperature_cutoff_tripped
-            or self.active_gain_trial is not None
-        ):
-            return
-
-        gain = float(self.trial_gain_value.currentData())
-        if gain in self.completed_gain_trials:
-            self.trial_status.setText(f"Kp={gain:g} has already been recorded in this test.")
-            return
-        setpoint = self.setpoint_value.value()
-        ambient = self.ambient_value.value()
-        initial_pwm = gain * abs(setpoint - ambient)
-
-        self.command_timer.stop()
-        self.pwm_slider.setValue(0)
-        self.command_timer.stop()
-        self.heat_button.setChecked(True)
-        if self.proportional_checkbox.isChecked():
-            self.proportional_checkbox.setChecked(False)
-        else:
-            self.serial_worker.send_command(0, "HEAT")
-        self.kp_value.setValue(gain)
-        self.proportional_checkbox.setChecked(True)
-
-        self.active_gain_trial = {
-            "gain": gain,
-            "initial_pwm": initial_pwm,
-            "setpoint": setpoint,
-            "ambient": ambient,
-            "initial_error": setpoint - ambient,
-            "susceptibility": self.susceptibility_value.value(),
-            "start_time_s": self.records[-1]["time_s"] if self.records else 0.0,
-            "started_at": datetime.now().strftime("%Y%m%d_%H%M%S_%f"),
-        }
-        self.start_trial_button.setEnabled(False)
-        self.record_trial_button.setEnabled(True)
-        self.set_controls_enabled(self.serial_ready)
-        self.trial_status.setText(
-            f"Running Kp={gain:g}; predicted initial PWM P₀={initial_pwm:.1f}. "
-            "Wait for settling or mark failure to settle."
-        )
-
-    @QtCore.Slot()
-    def record_gain_trial(self):
-        trial = self.active_gain_trial
-        if trial is None or not self.records:
-            return
-
-        trace = [
-            item for item in self.records
-            if item["time_s"] > trial["start_time_s"]
-        ]
-        if not trace:
-            self.trial_status.setText("No trace measurements available; trial remains active.")
-            return
-
-        final_measurement = trace[-1]
-        final_temperature = final_measurement["temperature_C"]
-        final_error = trial["setpoint"] - final_temperature
-        result = {
-            **trial,
-            "outcome": self.trial_outcome.currentText(),
-            "final_temperature": final_temperature,
-            "error": final_error,
-            "pwm": final_measurement["pwm"],
-        }
-
-        CSV_PATH.parent.mkdir(parents=True, exist_ok=True)
-        trace_path = CSV_PATH.parent / f"kp_trial_{trial['started_at']}_trace.csv"
-        with trace_path.open("w", newline="") as trace_file:
-            writer = csv.writer(trace_file)
-            writer.writerow(["time_s", "temperature_C", "pwm", "heat_cool"])
-            writer.writerows(
-                [
-                    item["time_s"],
-                    item["temperature_C"],
-                    item["pwm"],
-                    item["heat_cool"],
-                ]
-                for item in trace
-            )
-
-        results_path = CSV_PATH.parent / "kp_droop_results.csv"
-        is_empty = not results_path.exists() or results_path.stat().st_size == 0
-        with results_path.open("a", newline="") as results_file:
-            writer = csv.writer(results_file)
-            if is_empty:
-                writer.writerow(
-                    [
-                        "started_at",
-                        "kp_pwm_per_c",
-                        "predicted_initial_pwm",
-                        "setpoint_C",
-                        "ambient_C",
-                        "initial_error_C",
-                        "module4_susceptibility_C_per_pwm",
-                        "outcome",
-                        "final_temperature_C",
-                        "error_C",
-                        "measured_pwm",
-                        "trace_file",
-                    ]
-                )
-            writer.writerow(
-                [
-                    result["started_at"],
-                    result["gain"],
-                    result["initial_pwm"],
-                    result["setpoint"],
-                    result["ambient"],
-                    result["initial_error"],
-                    result["susceptibility"],
-                    result["outcome"],
-                    result["final_temperature"],
-                    result["error"],
-                    result["pwm"],
-                    trace_path.name,
-                ]
-            )
-
-        self.gain_trial_results.append(result)
-        self.completed_gain_trials.add(result["gain"])
-        self.active_gain_trial = None
-        self.record_trial_button.setEnabled(False)
-        self.set_controls_enabled(self.serial_ready)
-        next_gain_index = next(
-            (
-                index for index, gain in enumerate(GAIN_TRIAL_VALUES)
-                if gain not in self.completed_gain_trials
-            ),
-            None,
-        )
-        if next_gain_index is not None:
-            self.trial_gain_value.setCurrentIndex(next_gain_index)
-        self.update_trial_prediction()
-        if next_gain_index is None:
-            self.trial_status.setText(
-                f"All {len(GAIN_TRIAL_VALUES)} gains recorded. Last trial: "
-                f"{result['outcome'].lower()}, final temperature {final_temperature:.2f} °C, "
-                f"error {final_error:.2f} °C, PWM {result['pwm']}. "
-                f"Trace: {trace_path.name}"
-            )
-        else:
-            self.trial_status.setText(
-                f"Saved {result['outcome'].lower()} trial: final temperature "
-                f"{final_temperature:.2f} °C, error {final_error:.2f} °C, "
-                f"PWM {result['pwm']}. Trace: {trace_path.name}"
-            )
-
-    @QtCore.Slot()
-    def show_droop_plot(self):
-        if not self.gain_trial_results:
-            self.trial_status.setText("Record at least one gain trial before plotting droop.")
-            return
-
-        dialog = QtWidgets.QDialog(self)
-        dialog.setWindowTitle("Measured droop versus proportional gain")
-        dialog.resize(800, 500)
-        dialog_layout = QtWidgets.QVBoxLayout(dialog)
-        plot = pg.PlotWidget()
-        plot.setLabel("bottom", "Proportional gain, Kp", units="PWM/°C")
-        plot.setLabel("left", "Droop (setpoint − final temperature)", units="°C")
-        plot.showGrid(x=True, y=True, alpha=0.25)
-        plot.addLegend()
-
-        for outcome, symbol, color in (
-            ("Settled", "o", "#2475a8"),
-            ("Failed to settle", "x", "#c43b32"),
-        ):
-            selected = [
-                result for result in self.gain_trial_results
-                if result["outcome"] == outcome
-            ]
-            if selected:
-                selected.sort(key=lambda result: result["gain"])
-                plot.plot(
-                    [result["gain"] for result in selected],
-                    [result["error"] for result in selected],
-                    pen=None,
-                    symbol=symbol,
-                    symbolBrush=color,
-                    symbolPen=color,
-                    name=f"Measured ({outcome.lower()})",
-                )
-
-        modeled = [
-            result for result in self.gain_trial_results
-            if result["susceptibility"] > 0
-        ]
-        if modeled:
-            modeled.sort(key=lambda result: result["gain"])
-            plot.plot(
-                [result["gain"] for result in modeled],
-                [
-                    result["initial_error"]
-                    / (1 + result["susceptibility"] * result["gain"])
-                    for result in modeled
-                ],
-                pen=pg.mkPen("#6b4c9a", width=2),
-                symbol="s",
-                symbolBrush="#6b4c9a",
-                name="Module 4 model",
-            )
-
-        dialog_layout.addWidget(plot)
-        dialog.exec()
 
     def send_proportional_command(
         self,
@@ -742,7 +469,6 @@ class CalibrationWindow(QtWidgets.QMainWindow):
             return
 
         self.latest_temperature_c = measurement["temperature_C"]
-        self.update_trial_prediction()
         self.update_error_readout()
         temperature_c = measurement["temperature_C"]
         if temperature_c < MIN_SAFE_TEMPERATURE_C or temperature_c > MAX_SAFE_TEMPERATURE_C:
@@ -752,7 +478,8 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         if self.proportional_checkbox.isChecked():
             self.send_proportional_command(self.setpoint_value.value())
 
-        self.records.append(measurement)
+        if not self.data_collection_paused:
+            self.records.append(measurement)
         direction = "HEAT" if measurement["heat_cool"] == 1 else "COOL"
         color = HEAT_COLOR if measurement["heat_cool"] == 1 else COOL_COLOR
         self.temperature_value.setText(f"Temperature: {measurement['temperature_C']:.2f} °C")
@@ -760,7 +487,8 @@ class CalibrationWindow(QtWidgets.QMainWindow):
         self.measured_pwm_value.setText(f"Measured PWM: {measurement['pwm']}")
         self.measured_direction.setText(f"Direction: {direction}")
         self.measured_direction.setStyleSheet(f"color: {color}; font-weight: 600")
-        self.write_csv_row(measurement)
+        if not self.data_collection_paused:
+            self.write_csv_row(measurement)
 
     def write_csv_row(self, measurement: dict):
         if self.csv_file is None:

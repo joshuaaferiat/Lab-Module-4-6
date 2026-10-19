@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="650" viewBox="0 0 1000 650" role="img" aria-labelledby="title description">
+  <title id="title">Temperature droop versus proportional gain</title>
+  <desc id="description">Measured droop in degrees Celsius decreases from 4.55 at Kp 2 PWM per degree Celsius to 0.46 at Kp 40 PWM per degree Celsius.</desc>
+  <rect width="1000" height="650" fill="white"/>
+  <text x="500" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="600" fill="#202124">Temperature Droop vs Proportional Gain</text>
+
+  <g stroke="#d9dee5" stroke-width="1">
+    <line x1="110" y1="550" x2="960" y2="550"/>
+    <line x1="110" y1="506.36" x2="960" y2="506.36"/>
+    <line x1="110" y1="462.73" x2="960" y2="462.73"/>
+    <line x1="110" y1="419.09" x2="960" y2="419.09"/>
+    <line x1="110" y1="375.45" x2="960" y2="375.45"/>
+    <line x1="110" y1="331.82" x2="960" y2="331.82"/>
+    <line x1="110" y1="288.18" x2="960" y2="288.18"/>
+    <line x1="110" y1="244.55" x2="960" y2="244.55"/>
+    <line x1="110" y1="200.91" x2="960" y2="200.91"/>
+    <line x1="110" y1="157.27" x2="960" y2="157.27"/>
+    <line x1="110" y1="113.64" x2="960" y2="113.64"/>
+    <line x1="110" y1="70" x2="960" y2="70"/>
+    <line x1="110" y1="70" x2="110" y2="550"/>
+    <line x1="204.44" y1="70" x2="204.44" y2="550"/>
+    <line x1="298.89" y1="70" x2="298.89" y2="550"/>
+    <line x1="393.33" y1="70" x2="393.33" y2="550"/>
+    <line x1="487.78" y1="70" x2="487.78" y2="550"/>
+    <line x1="582.22" y1="70" x2="582.22" y2="550"/>
+    <line x1="676.67" y1="70" x2="676.67" y2="550"/>
+    <line x1="771.11" y1="70" x2="771.11" y2="550"/>
+    <line x1="865.56" y1="70" x2="865.56" y2="550"/>
+    <line x1="960" y1="70" x2="960" y2="550"/>
+  </g>
+
+  <g stroke="#30343b" stroke-width="2">
+    <line x1="110" y1="70" x2="110" y2="550"/>
+    <line x1="110" y1="550" x2="960" y2="550"/>
+  </g>
+  <g fill="#30343b" font-family="Arial, sans-serif" font-size="14">
+    <text x="110" y="575" text-anchor="middle">0</text>
+    <text x="204.44" y="575" text-anchor="middle">5</text>
+    <text x="298.89" y="575" text-anchor="middle">10</text>
+    <text x="393.33" y="575" text-anchor="middle">15</text>
+    <text x="487.78" y="575" text-anchor="middle">20</text>
+    <text x="582.22" y="575" text-anchor="middle">25</text>
+    <text x="676.67" y="575" text-anchor="middle">30</text>
+    <text x="771.11" y="575" text-anchor="middle">35</text>
+    <text x="865.56" y="575" text-anchor="middle">40</text>
+    <text x="960" y="575" text-anchor="middle">45</text>
+
+    <text x="96" y="555" text-anchor="end">0</text>
+    <text x="96" y="511.36" text-anchor="end">0.5</text>
+    <text x="96" y="467.73" text-anchor="end">1.0</text>
+    <text x="96" y="424.09" text-anchor="end">1.5</text>
+    <text x="96" y="380.45" text-anchor="end">2.0</text>
+    <text x="96" y="336.82" text-anchor="end">2.5</text>
+    <text x="96" y="293.18" text-anchor="end">3.0</text>
+    <text x="96" y="249.55" text-anchor="end">3.5</text>
+    <text x="96" y="205.91" text-anchor="end">4.0</text>
+    <text x="96" y="162.27" text-anchor="end">4.5</text>
+    <text x="96" y="118.64" text-anchor="end">5.0</text>
+    <text x="96" y="75" text-anchor="end">5.5</text>
+  </g>
+
+  <polyline points="147.78,153.27 204.44,304.55 298.89,406 487.78,469.71 676.67,498.51 865.56,509.85" fill="none" stroke="#2475a8" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#2475a8" stroke="white" stroke-width="2">
+    <circle cx="147.78" cy="153.27" r="6"/>
+    <circle cx="204.44" cy="304.55" r="6"/>
+    <circle cx="298.89" cy="406" r="6"/>
+    <circle cx="487.78" cy="469.71" r="6"/>
+    <circle cx="676.67" cy="498.51" r="6"/>
+    <circle cx="865.56" cy="509.85" r="6"/>
+  </g>
+
+  <text x="535" y="620" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" fill="#202124">Proportional gain, Kₚ (PWM/°C)</text>
+  <text x="28" y="310" text-anchor="middle" transform="rotate(-90 28 310)" font-family="Arial, sans-serif" font-size="18" fill="#202124">Droop, Tset − Tfinal (°C)</text>
+</svg>

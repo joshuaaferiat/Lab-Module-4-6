@@ -1,0 +1,11 @@
+Trial 002 strip-chart analysis
+Starting temperature: 30.13 °C
+Setpoint: 33.00 °C
+K_p: 1–100 PWM/°C (varied during run)
+T_ss: 32.79 °C (mean of final 20% of samples, from 20.40 s)
+First peak: 31.92 °C at 9.00 s
+Overshoot relative to T_ss: -0.87 °C relative to T_ss
+Later crossings of T_ss: 14.69 s, 17.97 s, 21.01 s, 23.64 s
+Later peaks: minimum 31.63 °C at 12.00 s (|T − T_ss|=1.16 °C); maximum 31.65 °C at 12.20 s (|T − T_ss|=1.14 °C); minimum 31.55 °C at 13.20 s (|T − T_ss|=1.24 °C); maximum 33.47 °C at 16.00 s (|T − T_ss|=0.68 °C); maximum 32.91 °C at 22.00 s (|T − T_ss|=0.12 °C); minimum 32.88 °C at 22.20 s (|T − T_ss|=0.09 °C); maximum 32.91 °C at 22.40 s (|T − T_ss|=0.12 °C); minimum 32.65 °C at 25.00 s (|T − T_ss|=0.14 °C); later peak deviations are not monotonically decreasing
+Signed PWM (heat positive, cool negative): -47 to +145 counts
+PWM saturation (|PWM| = 255): none observed
